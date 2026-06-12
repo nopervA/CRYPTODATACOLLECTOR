@@ -143,3 +143,78 @@ def test_telegram_send_failure_does_not_raise() -> None:
             await alerter.close()
 
     asyncio.run(scenario())
+
+
+class _MockTelegramResponse:
+    status = 200
+
+    async def text(self) -> str:
+        return '{"ok": true}'
+
+    async def __aenter__(self) -> _MockTelegramResponse:
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+class _MockTelegramSession:
+    def __init__(self) -> None:
+        self.posts: list[dict[str, object]] = []
+
+    def post(self, url: str, **kwargs: object) -> _MockTelegramResponse:
+        self.posts.append({"url": url, **kwargs})
+        return _MockTelegramResponse()
+
+
+def test_worker_sends_first_queued_event() -> None:
+    settings = replace(
+        Settings(),
+        telegram_bot_token="token",
+        telegram_chat_id="123",
+    )
+
+    async def scenario() -> None:
+        session = _MockTelegramSession()
+        alerter = TelegramAlerter(settings, session)  # type: ignore[arg-type]
+        await alerter.start()
+        alerter.notify(
+            AlertEventType.DISK_USAGE_HIGH,
+            AlertSeverity.WARNING,
+            "disk low",
+        )
+        await asyncio.sleep(0.05)
+        await alerter.close()
+        assert len(session.posts) >= 1
+        texts = [str(post["json"]["text"]) for post in session.posts]
+        assert any("disk_usage_high" in text for text in texts)
+
+    asyncio.run(scenario())
+
+
+def test_startup_and_shutdown_notifications_are_sent() -> None:
+    settings = replace(
+        Settings(),
+        telegram_bot_token="token",
+        telegram_chat_id="123",
+    )
+
+    async def scenario() -> None:
+        session = _MockTelegramSession()
+        alerter = TelegramAlerter(settings, session)  # type: ignore[arg-type]
+        await alerter.start()
+        alerter.notify_collector_restarted("symbols=25")
+        await alerter.close()
+        texts = [
+            str(post["json"]["text"])
+            for post in session.posts
+            if isinstance(post.get("json"), dict)
+        ]
+        assert any("collector_restarted" in text for text in texts)
+        assert any("collector_stopped" in text for text in texts)
+        assert texts.index(
+            next(t for t in texts if "collector_restarted" in t)
+        ) < texts.index(next(t for t in texts if "collector_stopped" in t))
+
+    asyncio.run(scenario())
+

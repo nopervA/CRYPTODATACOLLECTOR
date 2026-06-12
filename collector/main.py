@@ -215,6 +215,13 @@ async def run_service(settings: Settings) -> None:
                 settings.health_host,
                 settings.health_port,
             )
+            alerter.notify_collector_restarted(
+                details=(
+                    f"symbols={len(settings.symbols)}; "
+                    f"health=http://{settings.health_host}:"
+                    f"{settings.health_port}/status"
+                )
+            )
 
             tasks = [
                 asyncio.create_task(collector.run(), name=type(collector).__name__)

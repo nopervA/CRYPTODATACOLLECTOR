@@ -87,31 +87,39 @@ class TelegramAlerter:
         self._worker_task = asyncio.create_task(
             self._worker(), name="telegram-alerts"
         )
-        self.notify(
-            AlertEventType.COLLECTOR_RESTARTED,
-            AlertSeverity.INFO,
-            "Collector started",
-            details=f"symbols={len(self.settings.symbols)}",
-        )
 
     async def close(self) -> None:
         if not self.enabled:
             return
-        self.notify(
-            AlertEventType.COLLECTOR_STOPPED,
-            AlertSeverity.WARNING,
-            "Collector shutting down",
-        )
+        self.notify_collector_stopped()
+        await self._queue.join()
         if self._worker_task is not None:
             try:
                 self._queue.put_nowait(None)
             except asyncio.QueueFull:
                 pass
             try:
-                await asyncio.wait_for(self._worker_task, timeout=5.0)
+                await asyncio.wait_for(self._worker_task, timeout=10.0)
             except asyncio.TimeoutError:
                 self._worker_task.cancel()
                 await asyncio.gather(self._worker_task, return_exceptions=True)
+
+    def notify_collector_restarted(self, details: str | None = None) -> None:
+        self.notify(
+            AlertEventType.COLLECTOR_RESTARTED,
+            AlertSeverity.INFO,
+            "Collector started",
+            details=details,
+            bypass_rate_limit=True,
+        )
+
+    def notify_collector_stopped(self) -> None:
+        self.notify(
+            AlertEventType.COLLECTOR_STOPPED,
+            AlertSeverity.WARNING,
+            "Collector shutting down",
+            bypass_rate_limit=True,
+        )
 
     def notify(
         self,
@@ -131,6 +139,12 @@ class TelegramAlerter:
             self._queue.put_nowait(event)
             if not bypass_rate_limit:
                 self._last_sent[event.event_type.value] = time.monotonic()
+            logger.info(
+                "Telegram alert emitted: event=%s severity=%s message=%s",
+                event.event_type.value,
+                event.severity.value,
+                message,
+            )
         except asyncio.QueueFull:
             logger.warning("Telegram alert queue full; dropping %s", event_type.value)
 
@@ -292,9 +306,8 @@ class TelegramAlerter:
                 self._queue.task_done()
                 return
             try:
-                if not self._is_rate_limited(event.event_type):
-                    await self._send(event)
-                    self._last_sent[event.event_type.value] = time.monotonic()
+                await self._send(event)
+                self._last_sent[event.event_type.value] = time.monotonic()
             except Exception:
                 logger.warning(
                     "Telegram alert delivery failed for %s",
@@ -319,6 +332,11 @@ class TelegramAlerter:
             if response.status >= 400:
                 body = await response.text()
                 raise RuntimeError(f"Telegram HTTP {response.status}: {body[:200]}")
+        logger.info(
+            "Telegram alert sent: event=%s severity=%s",
+            event.event_type.value,
+            event.severity.value,
+        )
 
 
 def _format_message(event: AlertEvent) -> str:
