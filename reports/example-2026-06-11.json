@@ -1,0 +1,64 @@
+{
+  "report_day": "2026-06-11",
+  "generated_at": "2026-06-12T00:15:00.000000Z",
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "per_symbol": {
+    "BTCUSDT": {
+      "trade_count": 184523,
+      "liquidation_count": 42,
+      "depth_count": 86400,
+      "mark_price_count": 86400,
+      "oi_count": 1440,
+      "funding_count": 288,
+      "funding_event_count": 288
+    },
+    "ETHUSDT": {
+      "trade_count": 92104,
+      "liquidation_count": 18,
+      "depth_count": 86400,
+      "mark_price_count": 86400,
+      "oi_count": 1440,
+      "funding_count": 288,
+      "funding_event_count": 288
+    }
+  },
+  "collector_metrics": {
+    "uptime_seconds": 86340.0,
+    "started_at_unix": 1749609600,
+    "websocket_disconnects": 3,
+    "websocket_reconnects": 3,
+    "rest_failures": 0,
+    "storage_failures": 0,
+    "queue_peak": {
+      "trades": 1240,
+      "depth50": 85,
+      "mark_price": 12
+    }
+  },
+  "integrity_checks": {
+    "missing_minutes": [],
+    "missing_oi_intervals": {},
+    "missing_funding_intervals": {},
+    "large_timestamp_gaps_ms": {},
+    "unexpected_empty_partitions": []
+  },
+  "storage_metrics": {
+    "daily_bytes_by_dataset": {
+      "trades": 52428800,
+      "depth50": 104857600
+    },
+    "total_bytes": 268435456,
+    "growth_trend": {
+      "avg_daily_bytes": 250000000,
+      "prior_days_included": 3,
+      "delta_from_prior_day_bytes": 8388608
+    },
+    "projected_monthly_bytes": 7500000000,
+    "projected_90_day_bytes": 22500000000,
+    "disk_usage_percent": 42.5,
+    "disk_free_bytes": 288000000000,
+    "disk_total_bytes": 500000000000
+  },
+  "alerts": [],
+  "status": "ok"
+}

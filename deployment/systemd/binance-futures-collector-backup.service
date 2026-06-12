@@ -1,0 +1,9 @@
+[Unit]
+Description=Binance Futures Collector data backup
+Documentation=file:///opt/binance-futures-collector/deployment/documentation/BACKUP.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/binance-futures-collector/deployment/systemd/binance-futures-collector.env
+ExecStart=/opt/binance-futures-collector/deployment/scripts/backup.sh

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Binance Futures Collector backup (03:00 UTC)
+Documentation=file:///opt/binance-futures-collector/deployment/documentation/BACKUP.md
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Binance Futures Collector health check
+Documentation=file:///opt/binance-futures-collector/deployment/documentation/MONITORING.md
+After=binance-futures-collector.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/opt/binance-futures-collector/deployment/systemd/binance-futures-collector.env
+ExecStart=/opt/binance-futures-collector/deployment/scripts/health-check.sh
