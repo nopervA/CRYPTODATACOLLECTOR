@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Automated Google Cloud Storage backup for collector data, logs, and config.
-set -euo pipefail
+# Weekly GCS backup for collector data and logs. Independent of the collector service.
+set -uo pipefail
 
 REPO_ROOT="/opt/binance-futures-collector"
 ENV_FILE="${REPO_ROOT}/deployment/systemd/binance-futures-collector.env"
-NOTIFY_SCRIPT="${REPO_ROOT}/deployment/scripts/telegram-notify.sh"
+PYTHON="${REPO_ROOT}/.venv/bin/python"
 
 if [[ -f "${ENV_FILE}" ]]; then
   # shellcheck disable=SC1090
@@ -20,11 +20,15 @@ if [[ "${BACKUP_ENABLED:-0}" != "1" ]]; then
   exit 0
 fi
 
-if ! "${REPO_ROOT}/.venv/bin/python" -m collector.cloud_backup; then
-  if [[ -x "${NOTIFY_SCRIPT}" ]]; then
-    "${NOTIFY_SCRIPT}" CRITICAL "Cloud backup failed" "See backup_reports/ and journalctl" || true
-  fi
+if [[ ! -x "${PYTHON}" ]]; then
+  echo "binance-futures-collector-backup: Python venv not found at ${PYTHON}" >&2
   exit 1
 fi
 
-exit 0
+# Backup failures must never stop the collector (separate oneshot unit).
+# Telegram notifications are sent from collector.cloud_backup after status is written.
+if "${PYTHON}" -m collector.cloud_backup; then
+  exit 0
+fi
+
+exit 1

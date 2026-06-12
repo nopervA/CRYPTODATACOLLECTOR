@@ -287,7 +287,10 @@ class TelegramAlerter:
                 AlertEventType.BACKUP_FAILURE,
                 AlertSeverity.CRITICAL,
                 "Backup failed",
-                details=str(payload.get("error", "unknown error"))[:500],
+                details=str(
+                    payload.get("error_message")
+                    or payload.get("error", "unknown error")
+                )[:500],
             )
 
     def _is_rate_limited(self, event_type: AlertEventType) -> bool:
@@ -370,7 +373,9 @@ def _read_backup_status(path: Path) -> str:
     if payload is None:
         return "unknown"
     if payload.get("success") is True:
-        return f"ok ({payload.get('last_run', 'n/a')})"
+        when = payload.get("timestamp") or payload.get("last_run", "n/a")
+        return f"ok ({when})"
     if payload.get("success") is False:
-        return f"failed ({payload.get('last_run', 'n/a')})"
+        when = payload.get("timestamp") or payload.get("last_run", "n/a")
+        return f"failed ({when})"
     return "unknown"

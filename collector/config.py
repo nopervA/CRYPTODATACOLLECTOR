@@ -71,8 +71,7 @@ class Settings:
     backup_report_dir: Path = Path("backup_reports")
     backup_enabled: bool = False
     backup_gcs_uri: str | None = None
-    backup_hour_utc: int = 3
-    backup_minute_utc: int = 0
+    backup_gcs_prefix: str = "weekly"
     report_dir: Path = Path("reports")
     quality_report_hour_utc: int = 0
     quality_report_minute_utc: int = 15
@@ -165,8 +164,7 @@ class Settings:
             ).resolve(),
             backup_enabled=os.getenv("BACKUP_ENABLED", "0") == "1",
             backup_gcs_uri=os.getenv("BACKUP_GCS_URI") or None,
-            backup_hour_utc=max(0, min(23, int(os.getenv("BACKUP_HOUR_UTC", "3")))),
-            backup_minute_utc=max(0, min(59, int(os.getenv("BACKUP_MINUTE_UTC", "0")))),
+            backup_gcs_prefix=os.getenv("BACKUP_GCS_PREFIX", "weekly").strip("/"),
             report_dir=Path(os.getenv("COLLECTOR_REPORT_DIR", "reports")).resolve(),
             quality_report_hour_utc=max(
                 0, min(23, int(os.getenv("QUALITY_REPORT_HOUR_UTC", "0")))

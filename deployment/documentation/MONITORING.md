@@ -182,7 +182,7 @@ Export custom textfile metric from health check:
 | Service active | Continuous | systemd / Cloud Logging |
 | `/status` freshness | 1 min | health timer |
 | Disk free space | 1 min | collector queue monitor log |
-| Backup success | Daily | backup timer journal |
+| Backup success | Weekly (Sun 03:00 UTC) | backup timer journal |
 | Counter growth | Hourly | `/status` `trades_received` trend |
 | Restart count | Daily | `systemctl show NRestarts` |
 

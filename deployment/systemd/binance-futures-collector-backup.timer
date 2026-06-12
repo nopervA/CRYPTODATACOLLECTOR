@@ -1,9 +1,9 @@
 [Unit]
-Description=Daily Binance Futures Collector backup (03:00 UTC)
+Description=Weekly Binance Futures Collector backup (Sunday 03:00 UTC)
 Documentation=file:///opt/binance-futures-collector/deployment/documentation/BACKUP.md
 
 [Timer]
-OnCalendar=*-*-* 03:00:00 UTC
+OnCalendar=Sun *-*-* 03:00:00 UTC
 Persistent=true
 AccuracySec=5min
 

@@ -98,8 +98,9 @@ Common overrides:
 | `HEALTH_HOST` | `127.0.0.1` | Bind locally; use reverse proxy for external probes |
 | `HEALTH_PORT` | `8080` | Health HTTP port |
 | `LOG_LEVEL` | `INFO` | Collector log verbosity |
-| `BACKUP_ENABLED` | `0` | Set `1` to enable daily GCS backup timer |
-| `BACKUP_GCS_URI` | unset | e.g. `gs://project-collector-backups/binance-futures` |
+| `BACKUP_ENABLED` | `0` | Set `1` to enable weekly GCS backup timer |
+| `BACKUP_GCS_URI` | unset | e.g. `gs://binance-futures-research-data` |
+| `BACKUP_GCS_PREFIX` | `weekly` | Prefix under bucket for dated snapshots |
 
 Persistent overrides without editing the repo file:
 

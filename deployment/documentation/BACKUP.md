@@ -1,98 +1,77 @@
 # Google Cloud Storage Backup
 
-Automated daily backup of collector data, logs, README, and configuration snapshots to Google Cloud Storage. The collector process is **never stopped** during backup.
+Automated **weekly** backup of collector data and logs to Google Cloud Storage. The collector process is **never stopped** during backup.
 
 ## Schedule
 
-| Setting | Default |
+| Setting | Value |
 |---|---|
-| Time | **03:00 UTC** daily |
+| Time | **Sunday 03:00 UTC** |
 | Timer unit | `binance-futures-collector-backup.timer` |
-| Engine | `python -m collector.cloud_backup` |
-
-Override schedule via systemd drop-in or edit the timer. Environment variables document intent:
-
-```ini
-BACKUP_HOUR_UTC=3
-BACKUP_MINUTE_UTC=0
-```
+| Engine | `python -m collector.cloud_backup` via `deployment/scripts/backup.sh` |
 
 ## Backup scope
 
-| Path | Destination |
+| Local path (production) | GCS destination |
 |---|---|
-| `COLLECTOR_DATA_DIR` (`data/`) | `gs://.../YYYY-MM-DD/data/` |
-| `COLLECTOR_LOG_DIR` (`logs/`) | `gs://.../YYYY-MM-DD/logs/` |
-| `README.md` (repo root) | `gs://.../YYYY-MM-DD/README.md` |
-| Config snapshot | `gs://.../YYYY-MM-DD/config/` |
+| `COLLECTOR_DATA_DIR` (default `/var/lib/binance-futures-collector/data`) | `gs://…/weekly/YYYY-MM-DD/data/` |
+| `COLLECTOR_LOG_DIR` (default `/var/log/binance-futures-collector`) | `gs://…/weekly/YYYY-MM-DD/logs/` |
 
-**Excluded:** `__pycache__`, `*.pyc`, `.pytest_cache`, `*.tmp`, `.segment.*`, `.merge.*`
-
-## Reports
-
-After each run:
+Production bucket (verified):
 
 ```text
-backup_reports/YYYY-MM-DD.json
+gs://binance-futures-research-data/weekly/2026-06-15/data/
+gs://binance-futures-research-data/weekly/2026-06-15/logs/
 ```
 
-Fields:
+**Excluded from rsync:** `__pycache__`, `*.pyc`, `.pytest_cache`, `*.tmp`, `.segment.*`, `.merge.*`
 
-| Field | Description |
-|---|---|
-| `timestamp` | UTC ISO8601 completion time |
-| `report_day` | UTC day backed up |
-| `files_uploaded` | Local file count in scope |
-| `bytes_uploaded` | Local byte count in scope |
-| `duration_seconds` | Wall-clock duration |
-| `success` | Boolean |
-| `error_message` | Set on failure |
-| `gcs_uri` | Destination prefix |
-| `objects_verified` | Objects seen via `gcloud storage ls -r` |
-| `bytes_verified` | Bytes via `gcloud storage du -s` |
-| `attempts` | Retry count used |
+## Status file
 
-Telegram/status integration continues via `backup_status.json`.
+After each run, `BACKUP_STATUS_FILE` (default `/var/lib/binance-futures-collector/backup_status.json`):
+
+```json
+{
+  "timestamp": "2026-06-15T03:12:34Z",
+  "bytes_uploaded": 141450611,
+  "duration_seconds": 312.456,
+  "success": true,
+  "error_message": null,
+  "backup_uri": "gs://binance-futures-research-data/weekly/2026-06-15"
+}
+```
+
+Detailed run reports are also written to `backup_reports/YYYY-MM-DD.json`.
+
+## Telegram alerts
+
+| Outcome | Severity | Mechanism |
+|---|---|---|
+| Success | INFO | `telegram-notify.sh` from `collector.cloud_backup` |
+| Failure | CRITICAL | `telegram-notify.sh` + in-process `backup_failure` on next monitor cycle |
+
+Backup runs in a **separate systemd oneshot** — failures never stop the collector.
 
 ## Enable on Debian 12
 
-### 1. Create bucket
+### 1. Bucket
 
-```bash
-gcloud storage buckets create gs://YOUR-PROJECT-collector-backups \
-  --location=us-central1 \
-  --uniform-bucket-level-access
+Bucket already exists:
+
+```text
+gs://binance-futures-research-data
 ```
 
-### 2. IAM permissions (VM service account)
+Ensure the VM service account has `roles/storage.objectAdmin` on the bucket.
 
-Minimum role for the backup service account or VM default SA:
-
-| Permission | Purpose |
-|---|---|
-| `storage.objects.create` | Upload objects |
-| `storage.objects.delete` | Rsync overwrite/delete deltas |
-| `storage.objects.get` | Verify listing |
-| `storage.objects.list` | Verify counts |
-
-**Recommended IAM role:** `roles/storage.objectAdmin` on the backup bucket prefix.
-
-Example binding:
-
-```bash
-gcloud storage buckets add-iam-policy-binding gs://YOUR-PROJECT-collector-backups \
-  --member="serviceAccount:COLLECTOR_VM_SA@YOUR-PROJECT.iam.gserviceaccount.com" \
-  --role="roles/storage.objectAdmin"
-```
-
-### 3. Install Google Cloud CLI
+### 2. Install Google Cloud CLI
 
 ```bash
 sudo apt-get install -y google-cloud-cli
 gcloud auth list   # VM should use attached service account
 ```
 
-### 4. Configure env
+### 3. Configure env
 
 ```bash
 sudo nano /opt/binance-futures-collector/deployment/systemd/binance-futures-collector.env
@@ -100,20 +79,25 @@ sudo nano /opt/binance-futures-collector/deployment/systemd/binance-futures-coll
 
 ```ini
 BACKUP_ENABLED=1
-BACKUP_GCS_URI=gs://YOUR-PROJECT-collector-backups/binance-futures
+BACKUP_GCS_URI=gs://binance-futures-research-data
+BACKUP_GCS_PREFIX=weekly
 BACKUP_REPORT_DIR=/opt/binance-futures-collector/backup_reports
+BACKUP_STATUS_FILE=/var/lib/binance-futures-collector/backup_status.json
 BACKUP_MAX_RETRIES=3
 ```
 
-### 5. Enable timer
+### 4. Enable timer
 
 ```bash
+sudo systemctl daemon-reload
 sudo systemctl enable binance-futures-collector-backup.timer
 sudo systemctl start binance-futures-collector-backup.timer
-sudo systemctl status binance-futures-collector-backup.timer
+sudo systemctl list-timers binance-futures-collector-backup.timer
 ```
 
-### 6. Manual run
+The timer is also registered automatically when `BACKUP_ENABLED=1` and the collector service starts (`ensure-runtime.sh`).
+
+### 5. Manual run
 
 ```bash
 sudo /opt/binance-futures-collector/deployment/scripts/backup.sh
@@ -124,68 +108,48 @@ cd /opt/binance-futures-collector
 
 ## Retry and failure handling
 
-- Up to **3 attempts** (configurable via `BACKUP_MAX_RETRIES`)
+- Up to **3 attempts** (`BACKUP_MAX_RETRIES`)
 - Exponential backoff: 5s, 10s, 20s
-- Failures write `backup_reports/YYYY-MM-DD.json` with `success: false`
-- Collector keeps running; backup is a separate systemd oneshot
-- Optional Telegram alert via `telegram-notify.sh`
+- Failures write status JSON with `success: false`
+- Collector keeps running; backup is an independent oneshot unit
 
 ## Restore
 
 ```bash
-DAY=2026-06-11
+DAY=2026-06-15
+sudo systemctl stop binance-futures-collector   # optional, for clean restore
 gcloud storage rsync -r \
-  "gs://YOUR-PROJECT-collector-backups/binance-futures/${DAY}/data" \
+  "gs://binance-futures-research-data/weekly/${DAY}/data" \
   /var/lib/binance-futures-collector/data
+gcloud storage rsync -r \
+  "gs://binance-futures-research-data/weekly/${DAY}/logs" \
+  /var/log/binance-futures-collector
+sudo systemctl start binance-futures-collector
 ```
 
-## Traffic and storage estimates (25 symbols)
+## Storage estimates (25 symbols)
 
-### Daily backup traffic (incremental rsync)
-
-| Phase | Typical |
+| Phase | Typical upload |
 |---|---|
-| Day 1 (full) | 2–8 GB upload |
-| Steady state | 50–500 MB/day (delta Parquet + logs) |
-| Peak volatile day | 1–3 GB |
+| First weekly full | 2–8 GB |
+| Steady weekly delta | 200 MB – 2 GB |
+| 12 weekly snapshots retained | ~25–100 GB in bucket |
 
-Uses `gcloud storage rsync` — only changed objects transfer after the first full sync.
-
-### GCS storage growth (90-day retention)
-
-| Component | Estimate |
-|---|---|
-| Data growth | ~75–200 GB/month on VM |
-| GCS with daily dated prefixes | ~same order if all days retained |
-| 90-day full mirror | **225–450 GB** in bucket |
-| Logs + config per day | < 50 MB |
-
-**Recommendation:** add a GCS lifecycle rule to delete prefixes older than 90 days, or keep only `LATEST` + weekly full snapshots.
-
-```bash
-gcloud storage buckets update gs://YOUR-PROJECT-collector-backups \
-  --lifecycle-file=- <<'EOF'
-{
-  "rule": [{
-    "action": {"type": "Delete"},
-    "condition": {"age": 90}
-  }]
-}
-EOF
-```
+**Recommendation:** add a GCS lifecycle rule to delete `weekly/` prefixes older than 90 days.
 
 ## Architecture
 
 ```text
-systemd timer (03:00 UTC)
+systemd timer (Sun 03:00 UTC)
     └── backup.sh
             └── python -m collector.cloud_backup
                     ├── gcloud storage rsync (data, logs)
-                    ├── gcloud storage cp (README, config)
                     ├── verify (ls + du)
-                    └── backup_reports/YYYY-MM-DD.json
+                    ├── backup_status.json
+                    ├── backup_reports/YYYY-MM-DD.json
+                    └── telegram-notify.sh (INFO / CRITICAL)
 ```
 
 Low memory: streaming rsync subprocesses, no in-memory dataset loading.
 
-Restart safe: each run is idempotent; dated GCS prefix prevents overwrite confusion.
+Restart safe: each run uses a dated GCS prefix; rsync is idempotent within a prefix.

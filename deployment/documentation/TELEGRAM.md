@@ -61,7 +61,8 @@ Leave `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID` blank to disable all Telegram a
 | `funding_updates_missing` | WARNING | No funding poll success within threshold |
 | `oi_updates_missing` | WARNING | No OI poll success within threshold |
 | `disk_usage_high` | WARNING / CRITICAL | Free disk below threshold |
-| `backup_failure` | CRITICAL | GCS backup script failed |
+| `backup_failure` | CRITICAL | Weekly GCS backup failed |
+| `backup_success` | INFO | Weekly GCS backup succeeded (via `telegram-notify.sh`) |
 | `data_integrity_failure` | CRITICAL | Parquet compaction error |
 | `unexpected_exception` | CRITICAL | Collector or WebSocket task crash |
 | `daily_summary` | INFO | Once per day (default 00:05 UTC) |
@@ -109,13 +110,15 @@ Includes:
 | `TELEGRAM_DAILY_SUMMARY_MINUTE_UTC` | `5` | Daily summary minute (UTC) |
 | `BACKUP_STATUS_FILE` | `/var/lib/.../backup_status.json` | Backup status for alerts |
 
-## Backup failure alerts
+## Backup alerts
 
-When `BACKUP_ENABLED=1`, `deployment/scripts/backup.sh`:
+When `BACKUP_ENABLED=1`, `collector.cloud_backup` (via `deployment/scripts/backup.sh`):
 
 1. Writes `backup_status.json` on success or failure
-2. Sends an immediate Telegram alert on failure via `telegram-notify.sh`
-3. The in-process monitor also picks up failed status on its next 60 s cycle
+2. Sends an immediate Telegram alert via `telegram-notify.sh`:
+   - **INFO** on success (`backup_success`)
+   - **CRITICAL** on failure (`backup_failure`)
+3. The in-process monitor also picks up failed status on its next 60 s cycle (`backup_failure` event)
 
 ## Architecture
 
