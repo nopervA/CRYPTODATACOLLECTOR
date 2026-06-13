@@ -13,6 +13,7 @@ Group=collector
 WorkingDirectory=/opt/binance-futures-collector
 EnvironmentFile=-/opt/binance-futures-collector/deployment/systemd/binance-futures-collector.env
 ExecStartPre=+/opt/binance-futures-collector/deployment/scripts/ensure-runtime.sh
+ExecStartPre=+/opt/binance-futures-collector/deployment/scripts/preflight.sh
 ExecStart=/opt/binance-futures-collector/.venv/bin/python /opt/binance-futures-collector/main.py
 Restart=always
 RestartSec=10

@@ -63,6 +63,7 @@ Leave `TELEGRAM_BOT_TOKEN` or `TELEGRAM_CHAT_ID` blank to disable all Telegram a
 | `disk_usage_high` | WARNING / CRITICAL | Free disk below threshold |
 | `backup_failure` | CRITICAL | Weekly GCS backup failed |
 | `backup_success` | INFO | Weekly GCS backup succeeded (via `telegram-notify.sh`) |
+| `health_check_failed` | CRITICAL | systemd health timer check failed |
 | `data_integrity_failure` | CRITICAL | Parquet compaction error |
 | `unexpected_exception` | CRITICAL | Collector or WebSocket task crash |
 | `daily_summary` | INFO | Once per day (default 00:05 UTC) |

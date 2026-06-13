@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 from collector.config import Settings
-from collector.health import HealthState
+from collector.health import HealthState, utc_iso_now
 from collector.ohlcv_builder import OhlcvBuilder
 from collector.taker_delta_builder import TakerDeltaBuilder
 from collector.rest_client import BinanceRestClient
@@ -98,6 +98,7 @@ class TradeCollector:
             await self._taker_delta_builder.on_trade(record)
         self._last_trade_id[symbol] = trade_id
         self._health.trades_received += 1
+        self._health.last_trade_update = utc_iso_now()
 
     async def _recover_gap(
         self, symbol: str, first_id: int, last_id: int

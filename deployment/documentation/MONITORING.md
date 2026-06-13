@@ -34,7 +34,11 @@ Example response:
   "top_of_book_updates_received": 987654,
   "last_funding_update": "2026-06-11T12:00:00.000000Z",
   "last_oi_update": "2026-06-11T12:01:00.000000Z",
-  "last_metadata_update": "2026-06-11T00:00:05.000000Z"
+  "last_metadata_update": "2026-06-11T00:00:05.000000Z",
+  "last_trade_update": "2026-06-11T12:01:30.000000Z",
+  "last_depth50_update": "2026-06-11T12:01:31.000000Z",
+  "websocket_reconnects": 2,
+  "integrity_error_count": 0
 }
 ```
 
@@ -43,6 +47,8 @@ Quick probe:
 ```bash
 curl -sf http://127.0.0.1:8080/status | python3 -m json.tool
 ```
+
+`last_metadata_update` is restored on startup by reading the newest `metadata/date=*/metadata.parquet` timestamp. After a restart, it is populated immediately when today's (or any prior) metadata file exists — you do not need to wait for the next daily collection cycle.
 
 ## Automated health verification
 
@@ -55,6 +61,9 @@ A systemd timer runs `deployment/scripts/health-check.sh` every minute (enabled 
 | Symbol count | `symbols > 0` |
 | OI freshness | `last_oi_update` within `HEALTH_MAX_OI_AGE_MINUTES` (default 5) when uptime ≥ threshold |
 | Funding freshness | `last_funding_update` within `HEALTH_MAX_FUNDING_AGE_MINUTES` (default 15) when uptime ≥ threshold |
+| Trade freshness | `last_trade_update` within `HEALTH_MAX_TRADE_AGE_MINUTES` (default 2) when uptime ≥ threshold |
+| Depth freshness | `last_depth50_update` within `HEALTH_MAX_DEPTH_AGE_MINUTES` (default 5) when uptime ≥ threshold |
+| Integrity | `integrity_error_count == 0` when uptime ≥ 15 minutes |
 
 Timer status:
 
@@ -75,7 +84,11 @@ Configure thresholds in `deployment/systemd/binance-futures-collector.env`:
 ```ini
 HEALTH_MAX_OI_AGE_MINUTES=5
 HEALTH_MAX_FUNDING_AGE_MINUTES=15
+HEALTH_MAX_TRADE_AGE_MINUTES=2
+HEALTH_MAX_DEPTH_AGE_MINUTES=5
 ```
+
+Failed checks send **CRITICAL** Telegram via `telegram-notify.sh` (`health_check_failed`).
 
 ## systemd service monitoring
 

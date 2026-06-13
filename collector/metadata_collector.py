@@ -8,6 +8,7 @@ from typing import Any
 
 from collector.config import Settings
 from collector.health import HealthState, utc_iso_now
+from collector.metadata_freshness import hydrate_last_metadata_update
 from collector.rest_client import BinanceRestClient
 from collector.storage import StorageManager
 
@@ -88,6 +89,7 @@ class MetadataCollector:
             return
         if self._metadata_exists_for_day(today):
             self._last_collected_day = today
+            hydrate_last_metadata_update(self._health, self._storage.data_dir)
             return
         await self._collect(today)
         self._last_collected_day = today

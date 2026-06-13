@@ -30,6 +30,14 @@ if [[ -d "${REPO_ROOT}" ]]; then
   chown -R collector:collector "${DATA_DIR}" "${LOG_DIR}"
   chmod -R u+rwX,g+rX "${REPO_ROOT}/.venv" 2>/dev/null || true
   chmod o+rX "${REPO_ROOT}" "${REPO_ROOT}/.venv" "${REPO_ROOT}/.venv/bin" 2>/dev/null || true
+  if [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
+    chmod 0755 "${REPO_ROOT}/.venv/bin/python"
+  fi
+  for script in "${REPO_ROOT}"/deployment/scripts/*.sh; do
+    if [[ -f "${script}" ]]; then
+      chmod 0755 "${script}"
+    fi
+  done
 fi
 
 if [[ -f "${LOGROTATE_SRC}" ]]; then

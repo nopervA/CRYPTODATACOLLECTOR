@@ -12,7 +12,7 @@ from collector.depth_metrics import (
     merge_depth50,
     parse_depth_ws,
 )
-from collector.health import HealthState
+from collector.health import HealthState, utc_iso_now
 from collector.rest_client import BinanceRestClient
 from collector.spread_state_tracker import SpreadStateTracker
 from collector.storage import StorageManager
@@ -151,3 +151,4 @@ class DepthCollector:
 
         self._health.depth_snapshots_received += 1
         self._health.top_of_book_updates_received += 1
+        self._health.last_depth50_update = utc_iso_now()

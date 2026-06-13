@@ -18,6 +18,7 @@ from collector.health import HealthState, start_health_server
 from collector.liquidation_collector import LiquidationCollector
 from collector.mark_price_collector import MarkPriceCollector
 from collector.metadata_collector import MetadataCollector
+from collector.metadata_freshness import hydrate_last_metadata_update
 from collector.oi_change_tracker import OiChangeTracker
 from collector.oi_collector import OpenInterestCollector
 from collector.ohlcv_builder import OhlcvBuilder
@@ -74,6 +75,8 @@ async def _monitor_loop(
         free_gb = usage.free / (1024**3)
         total_gb = usage.total / (1024**3)
         runtime_metrics.record_queue_sizes(storage.queue_sizes())
+        health.integrity_error_count = storage.integrity_error_count
+        health.websocket_reconnects = alerter.websocket_reconnects
         log_method = logger.warning if free_gb < 10.0 else logger.info
         log_method(
             "Storage queue sizes: %s; free disk: %.2f GB",
@@ -139,6 +142,7 @@ async def run_service(settings: Settings) -> None:
     _install_signal_handlers(stop_event)
 
     await storage.start()
+    hydrate_last_metadata_update(health, settings.data_dir)
     try:
         timeout = aiohttp.ClientTimeout(total=20.0, connect=10.0, sock_read=10.0)
         connector = aiohttp.TCPConnector(
@@ -206,7 +210,11 @@ async def run_service(settings: Settings) -> None:
             )
 
             health_runner = await start_health_server(
-                health, settings.health_host, settings.health_port
+                health,
+                settings.health_host,
+                settings.health_port,
+                integrity_error_count=lambda: storage.integrity_error_count,
+                websocket_reconnects=lambda: alerter.websocket_reconnects,
             )
             logger.info(
                 "Collector started for %d symbols; health endpoint: "
